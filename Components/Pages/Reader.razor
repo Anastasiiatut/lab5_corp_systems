@@ -1,0 +1,109 @@
+@page "/readers"
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpClientFactory
+<PageTitle>Читачі</PageTitle>
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#readerCreate">Створити читача</button>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Прізвище та Ім'я</th>
+      <th scope="col">№ Квитка</th>
+      <th scope="col">Телефон</th>
+    </tr>
+  </thead>
+  <tbody>
+    @foreach (var reader in Readers)
+    {
+        <tr id="reader-@reader.ReaderID">
+            <th scope="row">@reader.ReaderID</th>
+            <td>@reader.LastName @reader.FirstName</td>
+            <td>@reader.LibraryCardNumber</td>
+            <td>@reader.PhoneNumber</td>
+        </tr>
+    }
+  </tbody>
+</table>
+<div class="modal fade" id="readerCreate" tabindex="-1" aria-labelledby="readerCreateLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="readerCreateLabel">Створити читача</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form @onsubmit="CreateReaderAsync">
+          <div class="modal-body">
+            <div class="mb-3">
+                <label for="last_name" class="form-label">Прізвище</label>
+                <input type="text" class="form-control" id="last_name" @bind="LastName">
+            </div>
+            <div class="mb-3">
+                <label for="first_name" class="form-label">Імʼя</label>
+                <input type="text" class="form-control" id="first_name" @bind="FirstName">
+            </div>
+            <div class="mb-3">
+                <label for="fathers_name" class="form-label">По-батькові</label>
+                <input type="text" class="form-control" id="fathers_name" @bind="MiddleName">
+            </div>
+            <div class="mb-3">
+                <label for="address" class="form-label">Адреса</label>
+                <input type="text" class="form-control" id="address" @bind="Address">
+            </div>
+            <label for="phone" class="form-label">Телефон</label>
+            <div class="mb-3 input-group">
+                <span class="input-group-text" id="code">+38</span>
+                <input type="text" class="form-control" id="phone" aria-describedby="code" @bind="Phone">
+            </div>
+            <div class="mb-3">
+                <label for="date_of_birth" class="form-label">Дата народження</label>
+                <input type="date" class="form-control" id="date_of_birth" @bind="Dob">
+            </div>
+            <div class="mb-3">
+                <label for="library_code" class="form-label">Номер читацького квитка</label>
+                <input type="text" class="form-control" id="library_code" @bind="Card">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрити</button>
+            <button type="submit" class="btn btn-primary" data-bs-dismiss="modal">Створити читача</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+@code {
+    private HttpClient? _httpClient;
+    public List<ReaderSchema> Readers { get; set; } = new();
+
+    public string LastName { get; set; }
+    public string FirstName { get; set; }
+    public string MiddleName { get; set; }
+    public string Address { get; set; }
+    public string Phone { get; set; }
+    public DateTime Dob { get; set; }
+    public string Card { get; set; }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _httpClient = HttpClientFactory.CreateClient();
+        _httpClient.BaseAddress = new Uri("http://localhost:5001/");
+        await LoadDataAsync();
+    }
+
+    protected async Task LoadDataAsync(){
+        Readers = await _httpClient.GetFromJsonAsync<List<ReaderSchema>>("api/Library/Readers") ?? new();
+    }
+
+    protected async Task CreateReaderAsync(){
+        if (_httpClient is null) return;
+
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/Library/CreateReader",
+            new { LastName = LastName, FirstName = FirstName, MiddleName = MiddleName, Address = Address, Phone = Phone, Dob = Dob.ToString("yyyy-MM-dd"), Card = Card });
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadDataAsync();
+        }
+    }
+}

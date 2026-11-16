@@ -1,0 +1,65 @@
+@page "/AllLoans"
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpClientFactory
+<PageTitle>Всі видачі</PageTitle>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Читач</th>
+      <th scope="col">Назва книги</th>
+      <th scope="col">Дата видачі</th>
+      <th scope="col">Дата повернення</th>
+      <th scope="col">Повернути?</th>
+    </tr>
+  </thead>
+  <tbody>
+    @foreach (var l in Loans)
+    {
+        <tr id="loan-@l.LoanID">
+            <th scope="row">@l.LoanID</th>
+            <td>@l.ReaderName</td>
+            <td>@l.Title</td>
+            <td>@l.BorrowDate</td>
+            <td>@(string.IsNullOrEmpty(l.ReturnDate) ? "Ще не повернуто" : l.ReturnDate)</td>
+            <td>
+                @if (string.IsNullOrEmpty(l.ReturnDate))
+                    {
+                        <button class="btn btn-primary" @onclick="() => ReturnBookAsync(l.LoanID)" role="button">Повернути</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary disabled" aria-disabled="true" tabindex="-1">Повернути</button>
+                    }
+            </td>
+        </tr>
+    }
+  </tbody>
+</table>
+@code {
+    private HttpClient? _httpClient;
+    public List<BookLoanSchema> Loans { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _httpClient = HttpClientFactory.CreateClient();
+        _httpClient.BaseAddress = new Uri("http://localhost:5001/");
+        await LoadDataAsync();
+    }
+
+    protected async Task LoadDataAsync(){
+        if (_httpClient is null) return;
+
+        Loans = await _httpClient.GetFromJsonAsync<List<BookLoanSchema>>("api/Library/AllLoans") ?? new();
+    }
+
+    protected async Task ReturnBookAsync(int loanID){
+        if (_httpClient is null) return;
+
+        var response = await _httpClient.GetAsync($"api/Library/ReturnBook?id={loanID}");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadDataAsync();
+        }
+    }
+}

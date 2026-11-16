@@ -1,0 +1,89 @@
+@page "/books"
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpClientFactory
+<PageTitle>Kнижки</PageTitle>
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bookCreate">Створити книжку</button>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Назва книги</th>
+      <th scope="col">Автор</th>
+      <th scope="col">Ціна</th>
+    </tr>
+  </thead>
+  <tbody>
+    @foreach (var book in Books)
+    {
+        <tr id="book-@book.BookID">
+            <th scope="row">@book.BookID</th>
+            <td>@book.Title</td>
+            <td>@book.Author</td>
+            <td>@book.Price</td>
+        </tr>
+    }
+  </tbody>
+</table>
+<div class="modal fade" id="bookCreate" tabindex="-1" aria-labelledby="bookCreateLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="bookCreateLabel">Створити книжку</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form @onsubmit="CreateBookAsync">
+          <div class="modal-body">
+            <div class="mb-3">
+                <label for="name" class="form-label">Назва книги</label>
+                <input type="text" class="form-control" id="name" @bind="Title">
+            </div>
+            <div class="mb-3">
+                <label for="author" class="form-label">Автор</label>
+                <input type="text" class="form-control" id="author" @bind="Author">
+            </div>
+            <label for="price" class="form-label">Ціна книги</label>
+            <div class="mb-3 input-group">
+                <input type="numeber" class="form-control" id="price" aria-describedby="currency" @bind="Price">
+                <span class="input-group-text" id="currency">грн.</span>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрити</button>
+            <button type="submit" class="btn btn-primary" data-bs-dismiss="modal">Створити книжку</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+@code {
+    private HttpClient? _httpClient;
+    public List<BookSchema> Books { get; set; } = new();
+
+    public string Title{ get; set; }
+    public string Author{ get; set; }
+    public int Price{ get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _httpClient = HttpClientFactory.CreateClient();
+        _httpClient.BaseAddress = new Uri("http://localhost:5001/");
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (_httpClient is null) return;
+
+        Books = await _httpClient.GetFromJsonAsync<List<BookSchema>>("api/Library/Books") ?? new();
+    }
+
+    private async Task CreateBookAsync(){
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/Library/CreateBook",
+            new { Title = Title, Author = Author, Price = Price });
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadDataAsync();
+        }
+    }
+}

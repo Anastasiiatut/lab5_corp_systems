@@ -1,0 +1,115 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpClientFactory
+<PageTitle>Активні видачі</PageTitle>
+
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addLoan">Видати книжку</button>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th scope="col">ID</th>
+      <th scope="col">Читач</th>
+      <th scope="col">Назва книги</th>
+      <th scope="col">Автор</th>
+      <th scope="col">Дата видачі</th>
+      <th scope="col">Поверути?</th>
+    </tr>
+  </thead>
+  <tbody>
+    @foreach (var l in ActiveLoans)
+    {
+        <tr id="loan-@l.LoanID">
+            <th scope="row">@l.LoanID</th>
+            <td>@l.ReaderName</td>
+            <td>@l.Title</td>
+            <td>@l.Author</td>
+            <td>@l.BorrowDate</td>
+            <td><button class="btn btn-primary" @onclick="() => ReturnBookAsync(l.LoanID)" role="button">Повернути</button></td>
+        </tr>
+    }
+  </tbody>
+</table>
+<div class="modal fade" id="addLoan" tabindex="-1" aria-labelledby="addLoanLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addLoanLabel">Видати книжку</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form @onsubmit="AddLoanAsync">
+        <div class="modal-body">
+            <div class="mb-3">
+                <label for="reader" class="form-label">Читач</label>
+                <select class="form-select" id="reader" @bind="SelectedReaderID" required>
+                    <option value="0" disabled selected>Оберіть читача...</option>
+                    @foreach (var reader in Readers)
+                    {
+                        <option value="@reader.ReaderID">@reader.LastName @reader.FirstName</option>
+                    }
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="book" class="form-label">Книжка</label>
+                <select class="form-select" id="book" @bind="SelectedBookID" required>
+                    <option value="0" disabled selected>Оберіть книжку...</option>
+                    @foreach (var book in Books)
+                    {
+                        <option value="@book.BookID">@book.Title | @book.Author</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрити</button>
+            <button type="submit" class="btn btn-primary" data-bs-dismiss="modal">Видати книжку</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+@code {
+    private HttpClient? _httpClient;
+    public List<ActiveLoanSchema> ActiveLoans { get; set; } = new();
+    public List<BookSchema> Books { get; set; } = new();
+    public List<ReaderSchema> Readers { get; set; } = new();
+
+    public int SelectedReaderID { get; set; }
+    public int SelectedBookID { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _httpClient = HttpClientFactory.CreateClient();
+        _httpClient.BaseAddress = new Uri("http://localhost:5001/");
+        await LoadDataAsync();
+    }
+    private async Task LoadDataAsync()
+    {
+        if (_httpClient is null) return;
+
+        ActiveLoans = await _httpClient.GetFromJsonAsync<List<ActiveLoanSchema>>("api/Library/ActiveLoans") ?? new();
+        Readers = await _httpClient.GetFromJsonAsync<List<ReaderSchema>>("api/Library/Readers") ?? new();
+        Books = await _httpClient.GetFromJsonAsync<List<BookSchema>>("api/Library/Books") ?? new();
+    }
+    private async Task AddLoanAsync()
+    {
+        if (_httpClient is null || SelectedReaderID == 0 || SelectedBookID == 0) return;
+
+        var response = await _httpClient.PostAsJsonAsync("api/Library/AddLoan", new { ReaderID = SelectedReaderID, BookID = SelectedBookID });
+        if (response.IsSuccessStatusCode)
+        {
+            SelectedReaderID = 0;
+            SelectedBookID = 0;
+            await LoadDataAsync();
+        }
+    }
+    protected async Task ReturnBookAsync(int loanID){
+        if (_httpClient is null) return;
+
+        var response = await _httpClient.GetAsync($"api/Library/ReturnBook?id={loanID}");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadDataAsync();
+        }
+    }
+}
